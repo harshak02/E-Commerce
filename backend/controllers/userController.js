@@ -132,3 +132,190 @@ exports.resetPassword = catchAsyncErrors(async (req,res,next)=>{
     sendToken(user,200,res);
 
 })
+
+
+//get User Details
+exports.getUserDetails = catchAsyncErrors(async (req,res,next)=>{
+    //gives us the current user (if authenticated)
+    const user = await User.findById(req.user.id);
+    res.status(200).json({
+        success : true,
+        user
+    })
+});
+
+
+//after logged in update or change password
+exports.updatePassword = catchAsyncErrors(async (req,res,next)=>{
+
+    const user = await User.findById(req.user.id).select("+password");
+    const isPasswordMatched = await user.comparePassword(req.body.oldPassword);
+
+    if(!isPasswordMatched){
+        return next(new ErrorHandler("Old Password is incorrect",401));
+    }
+
+    if(req.body.newPassword !== req.body.confirmPassword){
+        return next(new ErrorHandler("Password is not matched",400));
+    }
+
+    user.password = req.body.newPassword;
+
+    await user.save();
+
+    sendToken(user,200,res);
+});
+
+
+
+//update user Profile --user
+exports.updateProfile = catchAsyncErrors(async (req,res,next)=>{
+
+    const newUserData = {
+        name : req.body.name,
+        email : req.body.email
+    }
+
+    if(!req.body.name || !req.body.email){
+        return next(new ErrorHandler("Enter the name and email",400));
+    }
+
+    //we will add cloudinary change avatar later
+    //req.user.id is inbuilt 
+    const user = await User.findByIdAndUpdate(req.user.id,newUserData,{
+        new : true,
+        runValidators : true,
+        useFindAndModify : false
+    });
+
+    res.status(200).json({
+        success : true,
+    });
+
+});
+
+
+
+
+//Get all users (admin ko sab ka details chahiye tho) --admin
+exports.getAllUsers = catchAsyncErrors(async (req,res,next)=>{
+
+    const users = await User.find();
+    if(!users){
+        return next(new ErrorHandler("No users yet!",400));
+    }
+    res.status(200).json({
+        success : true,
+        users
+    })
+});
+
+
+//get single user by admin  --admin
+exports.getSingleUser = catchAsyncErrors(async (req,res,next)=>{
+
+    const user = await User.findById(req.params.id);
+
+    if(!user){
+        return next(new ErrorHandler(`User not found with id ${req.params.id}`,400));
+    }
+    res.status(200).json({
+        success : true,
+        user
+    })
+});
+
+
+
+//update user Profile --admin
+exports.updateUserRole = catchAsyncErrors(async (req,res,next)=>{
+
+    const newUserData = {
+        name : req.body.name,
+        email : req.body.email,
+        role : req.body.role
+    }
+
+    if(!req.body.name || !req.body.email){
+        return next(new ErrorHandler("Enter the name and email",400));
+    }
+    
+    //req.user.id is inbuilt 
+    const user = await User.findByIdAndUpdate(req.params.id,newUserData,{
+        new : true,
+        runValidators : true,
+        useFindAndModify : false
+    });
+
+    res.status(200).json({
+        success : true,
+    });
+
+});
+
+
+
+//delete User Profile --admin
+exports.deleteProfile = catchAsyncErrors(async (req,res,next)=>{
+
+    const user = await User.findById(req.params.id);
+
+    //we will remove cloudinary change avatar later
+    //req.user.id is inbuilt 
+
+    if(!user){
+        next(new ErrorHandler(`User not found with id : ${req.params.id}`,400));
+    }
+    
+    await User.findByIdAndDelete(req.params.id);
+
+    res.status(200).json({
+        success : true,
+        message : "User deleted Successfully"
+    });
+
+});
+
+
+//Create new Review or update Review --user or admin
+exports.createProductReview = catchAsyncErrors(async (req,res,next)=>{
+
+    const {rating,comment,productId} = req.body;
+
+    const review = {
+        user : req.user.id,
+        name : req.user.name,
+        rating : Number(rating),
+        comment,
+    }
+
+    const product = await Product.findById(productId);
+
+    //if the user is aldready reviwed the product;
+    const isReviewed = product.reviews.find((rev) => rev.user.toString()===req.user.id.toString());
+    if(isReviewed){
+        product.reviews.forEach((rev) =>{
+            if(rev.user.toString()===req.user.id.toString()){
+                rev.rating = rating,
+                rev.comment = comment
+            }
+        });
+    }
+    else{
+        product.reviews.push(review);
+        product.numOfReviews = product.reviews.length
+    }
+
+    let avg = 0;
+    product.ratings = product.reviews.forEach((rev) => {
+        avg+=rev.rating;
+    })/product.reviews.length;
+
+    await product.save({
+        validateBeforeSave : false,
+    });
+
+    res.status(200).json({
+        success : true,
+    });
+});

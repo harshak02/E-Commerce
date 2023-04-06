@@ -45,6 +45,7 @@ const userSchema = new mongoose.Schema({
 
 //pre is an event that is before save run this
 //we cant use this keyword in nrml
+//here while saving the password we are hashing and save
 userSchema.pre("save",async function(next){
 
     if(!this.isModified("password")){

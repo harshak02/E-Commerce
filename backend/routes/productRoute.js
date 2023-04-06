@@ -11,13 +11,14 @@ const router = express.Router();
 router.route("/products").get(getAllProducts);
 
 //route function for the creating the new product
-router.route("/product/new").post(isAuthenticatedUser,authorizeRoles("admin"),createProduct);
+router.route("/admin/product/new").post(isAuthenticatedUser,authorizeRoles("admin"),createProduct);
 
 //route function for updating the product and deleting 
 //as same url route so you can do this
-router.route("/product/:id")
+router.route("/admin/product/:id")
 .put(isAuthenticatedUser,authorizeRoles("admin"),updateProduct)
-.delete(isAuthenticatedUser,authorizeRoles("admin"),deleteProduct)
-.get(getProductDetails);
+.delete(isAuthenticatedUser,authorizeRoles("admin"),deleteProduct);
+
+router.route("/product/:id").get(getProductDetails);
 
 module.exports = router
